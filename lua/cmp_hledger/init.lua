@@ -30,14 +30,12 @@ local get_items = function(account_path)
   vim.api.nvim_exec(
     string.format(
       [[python3 <<EOB
-from beancount.loader import load_file
-from beancount.core import data
-
-accounts = set()
-entries, _, _ = load_file('%s')
-for index, entry in enumerate(entries):
-    if isinstance(entry, data.Open):
-        accounts.add(entry.account)
+import subprocess
+args = ("hledger", "accounts", "-f", "%s")
+popen = subprocess.Popen(args, stdout=subprocess.PIPE)
+popen.wait()
+output = popen.stdout.read()
+accounts = set(output.decode('utf-8').split('\n'))
 vim.command('let b:hledger_accounts = [{}]'.format(','.join(repr(x) for x in sorted(accounts))))
 EOB]],
       account_path
