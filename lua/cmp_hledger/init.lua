@@ -25,25 +25,22 @@ local ltrim = function(s)
   return s:match('^%s*(.*)')
 end
 
+local split = function(str, sep)
+  local t = {}
+  for s in string.gmatch(str, '([^' .. sep .. ']+)') do
+    table.insert(t, s)
+  end
+  return t
+end
+
 local get_items = function(account_path)
-  -- improved version is based on https://github.com/nathangrigg/vim-beancount/blob/master/autoload/beancount.vim
-  vim.api.nvim_exec(
-    string.format(
-      [[python3 <<EOB
-import subprocess
-args = ("hledger", "accounts", "-f", "%s")
-popen = subprocess.Popen(args, stdout=subprocess.PIPE)
-popen.wait()
-output = popen.stdout.read()
-accounts = set(output.decode('utf-8').split('\n'))
-vim.command('let b:hledger_accounts = [{}]'.format(','.join(repr(x) for x in sorted(accounts))))
-EOB]],
-      account_path
-    ),
-    true
-  )
+  local openPop = assert(io.popen('hledger accounts -f ' .. account_path))
+  local output = openPop:read('*all')
+  openPop:close()
+  local t = split(output, "\n")
+
   local items = {}
-  for _, s in ipairs(vim.b.hledger_accounts) do
+  for _, s in pairs(t) do
     table.insert(items, {
       label = s,
       kind = cmp.lsp.CompletionItemKind.Property,
@@ -53,36 +50,19 @@ EOB]],
   return items
 end
 
-local split_accounts = function(str)
-  local sep = ':'
-  local t = {}
-  for s in string.gmatch(str, '([^' .. sep .. ']+)') do
-    table.insert(t, s)
-  end
-  return t
-end
-
 source.complete = function(self, request, callback)
   if vim.bo.filetype ~= 'ledger' then
     callback()
     return
   end
   local account_path = vim.api.nvim_buf_get_name(0)
-  if account_path == nil or not vim.fn.filereadable(account_path) then
-    vim.api.nvim_echo({
-      { 'cmp_hledger',                    'ErrorMsg' },
-      { ' ' .. 'Accounts file is not set' },
-    }, true, {})
-    callback()
-    return
-  end
   if not self.items then
     self.items = get_items(account_path)
   end
 
   local prefix_mode = false
   local input = ltrim(request.context.cursor_before_line):lower()
-  local prefixes = split_accounts(input)
+  local prefixes = split(input, ":")
   local pattern = ''
 
   for i, prefix in ipairs(prefixes) do
