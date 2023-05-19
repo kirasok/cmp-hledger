@@ -67,7 +67,7 @@ source.complete = function(self, request, callback)
     callback()
     return
   end
-  local account_path = request.option.account
+  local account_path = vim.api.nvim_buf_get_name(0)
   if account_path == nil or not vim.fn.filereadable(account_path) then
     vim.api.nvim_echo({
       { 'cmp_hledger',                    'ErrorMsg' },
@@ -77,7 +77,7 @@ source.complete = function(self, request, callback)
     return
   end
   if not self.items then
-    self.items = get_items(request.option.account)
+    self.items = get_items(account_path)
   end
 
   local prefix_mode = false
